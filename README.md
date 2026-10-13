@@ -3,818 +3,1149 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-  <title>時序小火車：尋日、今日、聽日</title>
+  <title>快樂獨體字探險記 - 平板互動配對小遊戲</title>
+  <!-- Tailwind CSS CDN -->
   <script src="https://cdn.tailwindcss.com"></script>
+  <!-- Canvas Confetti for celebratory positive reinforcement -->
+  <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
+  <!-- Google Fonts: Zen Maru Gothic / Noto Serif HK / Educational style -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Chiron+Hei+HK:wght@500;700;900&family=Noto+Sans+TC:wght@500;700;900&family=Noto+Serif+HK:wght@700;900&display=swap" rel="stylesheet">
+
   <style>
-    /* 專為4歲幼童及特教設計的字體、防誤觸及低刺激視覺規範 */
     body {
-      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "PingFang HK", "Noto Sans HK", "Microsoft JhengHei", sans-serif;
+      font-family: 'Chiron Hei HK', 'Noto Sans TC', system-ui, -apple-system, sans-serif;
       touch-action: manipulation;
       user-select: none;
       -webkit-user-select: none;
-      -webkit-touch-callout: none;
-      background-color: #F8FAFC;
+      -webkit-tap-highlight-color: transparent;
+      background-color: #FFFDF0;
     }
 
-    /* 溫和的高亮微動動畫 (避免過度刺激與快速閃爍) */
+    /* Traditional Chinese Educational / Stroke clarity font */
+    .char-font {
+      font-family: 'Noto Serif HK', 'DFKai-SB', 'BiauKai', 'KaiTi', serif;
+      font-weight: 900;
+    }
+
+    /* Gentle pulsing effect for current active element */
     @keyframes gentlePulse {
-      0%, 100% {
-        transform: scale(1);
-        box-shadow: 0 4px 20px rgba(245, 158, 11, 0.25);
-      }
-      50% {
-        transform: scale(1.025);
-        box-shadow: 0 8px 30px rgba(245, 158, 11, 0.45);
-      }
+      0%, 100% { transform: scale(1); box-shadow: 0 4px 15px rgba(251, 146, 60, 0.25); }
+      50% { transform: scale(1.05); box-shadow: 0 10px 25px rgba(251, 146, 60, 0.45); }
+    }
+    .pulse-selected {
+      animation: gentlePulse 1.2s infinite ease-in-out;
     }
 
-    .active-carriage {
-      animation: gentlePulse 2.8s ease-in-out infinite;
-      border-color: #F59E0B !important;
-      background-color: #FFFBEB !important;
-    }
-
-    /* 拖曳中的手勢反饋 */
-    .dragging-card {
-      opacity: 0.6;
-      transform: scale(1.08);
-      cursor: grabbing;
-      box-shadow: 0 16px 32px rgba(0, 0, 0, 0.15);
-      z-index: 50;
-    }
-
-    .touch-proxy {
-      position: fixed;
-      pointer-events: none;
-      z-index: 9999;
-      transform: translate(-50%, -50%) scale(1.08);
-      filter: drop-shadow(0 14px 24px rgba(0, 0, 0, 0.2));
-      will-change: transform, left, top;
-    }
-
-    /* 柔和輕彈回位動畫 */
-    .bounce-back {
-      transition: transform 0.35s cubic-bezier(0.34, 1.56, 0.64, 1);
-    }
-
-    /* 輕微晃動表示重試 (溫和不具處罰感) */
-    @keyframes softNudge {
+    /* Soft encouraging shake for non-match (no harsh penalties) */
+    @keyframes gentleWiggle {
       0%, 100% { transform: translateX(0); }
-      30% { transform: translateX(-6px); }
-      70% { transform: translateX(6px); }
+      20% { transform: translateX(-6px) rotate(-1.5deg); }
+      40% { transform: translateX(6px) rotate(1.5deg); }
+      60% { transform: translateX(-4px) rotate(-1deg); }
+      80% { transform: translateX(4px) rotate(1deg); }
     }
-    .nudge-retry {
-      animation: softNudge 0.32s ease-in-out;
-    }
-
-    /* 車廂軌道與連接口 */
-    .train-connector::after {
-      content: '';
-      position: absolute;
-      right: -18px;
-      top: 50%;
-      width: 18px;
-      height: 8px;
-      background-color: #94A3B8;
-      border-radius: 4px;
-      transform: translateY(-50%);
+    .wiggle-hint {
+      animation: gentleWiggle 0.5s ease-in-out;
     }
 
-    /* 綠色大打勾成功標記 */
-    .checkmark-pop {
-      animation: popIn 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
+    /* Correct bounce */
+    @keyframes happyBounce {
+      0%, 100% { transform: scale(1); }
+      40% { transform: scale(1.12); }
+      70% { transform: scale(0.95); }
     }
-    @keyframes popIn {
-      0% { transform: scale(0.4) rotate(-15deg); opacity: 0; }
-      100% { transform: scale(1) rotate(0); opacity: 1; }
+    .matched-bounce {
+      animation: happyBounce 0.6s cubic-bezier(0.34, 1.56, 0.64, 1);
+    }
+
+    /* Custom scrollbars */
+    ::-webkit-scrollbar {
+      width: 6px;
+      height: 6px;
+    }
+    ::-webkit-scrollbar-thumb {
+      background: #fed7aa;
+      border-radius: 9999px;
     }
   </style>
 </head>
-<body class="min-h-screen text-slate-800 flex flex-col justify-between overflow-x-hidden p-3 md:p-6 select-none">
+<body class="min-h-screen text-slate-800 flex flex-col justify-between overflow-x-hidden">
 
-  <!-- 頂部：導師工具列與仿說指引 -->
-  <header class="w-full max-w-6xl mx-auto flex flex-col md:flex-row items-center justify-between gap-2.5 pb-2 border-b border-slate-200">
-    <div class="flex items-center gap-3 w-full md:w-auto justify-between md:justify-start">
-      <div class="flex items-center gap-2">
-        <span class="text-2xl" role="img" aria-label="train">🚂</span>
+  <header class="w-full bg-amber-100/80 backdrop-blur-md border-b-4 border-amber-300 px-4 py-2 sm:py-3 shadow-sm sticky top-0 z-30">
+    <div class="max-w-6xl mx-auto flex items-center justify-between gap-2">
+      <!-- Title & Mascot -->
+      <div class="flex items-center gap-2 sm:gap-3">
+        <span class="text-3xl sm:text-4xl filter drop-shadow">🌱</span>
         <div>
-          <h1 class="text-xl md:text-2xl font-black text-slate-800 tracking-wide">時序小火車</h1>
-          <p class="text-xs text-slate-500 font-medium">幼兒個別化訓練教材（4歲時序概念）</p>
+          <h1 class="text-xl sm:text-2xl font-black text-amber-900 tracking-wide flex items-center gap-2">
+            快樂獨體字探險記
+          </h1>
+          <p class="text-xs sm:text-sm font-bold text-amber-700 hidden sm:block">
+            適合 K3 幼兒及學習支援的小朋友・認形音義
+          </p>
         </div>
       </div>
-      
-      <!-- 重新發音與重試控制按鈕 -->
+
+      <!-- Level Stars Progress Indicator -->
+      <div class="flex items-center gap-2 sm:gap-4 bg-white/90 px-3 py-1.5 sm:px-4 sm:py-2 rounded-2xl shadow-inner border-2 border-amber-200">
+        <div class="flex flex-col items-center">
+          <span class="text-xs font-bold text-amber-700">關卡進度</span>
+          <span id="level-display" class="text-base sm:text-lg font-black text-orange-600">第 1 / 8 關</span>
+        </div>
+        <!-- 8 stars dots -->
+        <div id="stars-container" class="grid grid-cols-4 gap-1 sm:flex sm:gap-1.5">
+          <!-- Populated by JS -->
+        </div>
+      </div>
+
+      <!-- Controls: Fullscreen & Teacher/Parent settings -->
       <div class="flex items-center gap-2">
-        <button id="btn-replay-audio" class="p-2.5 px-3.5 bg-amber-100 hover:bg-amber-200 active:scale-95 text-amber-900 rounded-2xl flex items-center gap-1.5 font-bold text-sm transition-all shadow-sm border border-amber-200">
-          <svg class="w-5 h-5 text-amber-700" fill="currentColor" viewBox="0 0 20 20">
-            <path fill-rule="evenodd" d="M9.383 3.076A1 1 0 0110 4v12a1 1 0 01-1.617.794L4.82 13H2a1 1 0 01-1-1V8a1 1 0 011-1h2.82l3.564-3.794A1 1 0 019.383 3.076zm5.825 2.131a1 1 0 011.414 0 9.972 9.972 0 010 14.108 1 1 0 01-1.414-1.414 7.972 7.972 0 000-11.28 1 1 0 010-1.414zm-2.828 2.828a1 1 0 011.414 0 5.986 5.986 0 010 8.465 1 1 0 01-1.414-1.414 3.986 3.986 0 000-5.637 1 1 0 010-1.414z" clip-rule="evenodd"></path>
+        <button id="btn-sound-replay" title="再聽一次廣東話提示" class="p-2 sm:px-3 sm:py-2 bg-emerald-500 hover:bg-emerald-600 active:scale-95 text-white font-bold rounded-xl shadow-md border-b-4 border-emerald-700 flex items-center gap-1.5 transition">
+          <svg class="w-6 h-6" fill="currentColor" viewBox="0 0 20 20">
+            <path fill-rule="evenodd" d="M9.383 3.076A1 1 0 0110 4v12a1 1 0 01-1.617.774l-4.14-3.313H2a1 1 0 01-1-1V7.539a1 1 0 011-1h2.243l4.14-3.313a1 1 0 011-.15zm5.088 2.095a1 1 0 011.414 0 7.002 7.002 0 010 9.898 1 1 0 11-1.414-1.414 5.002 5.002 0 000-7.07 1 1 0 010-1.414zm-2.828 2.828a1 1 0 011.414 0 3 3 0 010 4.242 1 1 0 11-1.414-1.414 1 1 0 000-1.414 1 1 0 010-1.414z" clip-rule="evenodd"/>
           </svg>
-          <span>讀多次</span>
+          <span class="text-xs sm:text-sm hidden md:inline">廣東話提示</span>
         </button>
-        <button id="btn-reset-all" class="p-2.5 px-3 bg-slate-100 hover:bg-slate-200 active:scale-95 text-slate-600 rounded-2xl text-xs font-semibold transition-all border border-slate-200">
-          重新開始
+
+        <button id="btn-teacher-menu" title="教師/家長模式" class="p-2 bg-amber-400 hover:bg-amber-500 active:scale-95 text-amber-950 font-bold rounded-xl shadow-md border-b-4 border-amber-600 transition">
+          <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"/>
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/>
+          </svg>
         </button>
       </div>
-    </div>
-
-    <!-- 導師個別訓練口語鷹架提點板 (低刺激、專業指引) -->
-    <div id="tutor-prompt-card" class="w-full md:w-auto bg-blue-50/90 border border-blue-200 rounded-2xl px-4 py-2 flex items-center gap-2 text-blue-900 shadow-sm">
-      <span class="inline-block px-2 py-0.5 text-xs font-black bg-blue-600 text-white rounded-md tracking-wider">導師指引</span>
-      <span id="tutor-speech-prompt" class="text-sm md:text-base font-bold">請按「讀多次」或等待學生操作...</span>
     </div>
   </header>
 
-  <!-- 中間主要工作區：時間軸三節車廂 -->
-  <main class="w-full max-w-6xl mx-auto flex-1 flex flex-col justify-around py-3">
-    
-    <!-- 語音文字即時看板 (超大字型、嚴格3-5字) -->
-    <div class="text-center my-2">
-      <div id="current-spoken-phrase" class="inline-flex items-center gap-2.5 px-6 py-2.5 bg-amber-50 rounded-full border-2 border-amber-300 shadow-sm transition-all duration-300">
-        <span class="w-3.5 h-3.5 rounded-full bg-amber-500 animate-ping"></span>
-        <span id="instruction-text" class="text-2xl md:text-3xl font-black text-amber-950 tracking-wider">今日玩積木</span>
+  <main class="flex-grow max-w-6xl w-full mx-auto p-3 sm:p-5 flex flex-col justify-center">
+
+    <!-- Top Mode Tab Bar (Step 1: 認一認 vs Step 2: 配一配) -->
+    <div class="flex items-center justify-between mb-3 sm:mb-4 bg-orange-100/90 p-2 rounded-2xl border-2 border-orange-200">
+      <div class="flex items-center gap-2">
+        <button id="tab-step-preview" class="px-4 py-2 rounded-xl font-black text-sm sm:text-base transition bg-orange-500 text-white shadow-md flex items-center gap-1.5">
+          <span>👀 步驟一：認一認・聽一聽</span>
+        </button>
+        <button id="tab-step-match" class="px-4 py-2 rounded-xl font-black text-sm sm:text-base transition bg-white/70 text-orange-900 hover:bg-white flex items-center gap-1.5">
+          <span>🧩 步驟二：連一連・配對大挑戰</span>
+        </button>
+      </div>
+      <div id="instruction-pill" class="text-xs sm:text-sm font-bold bg-amber-50 border border-amber-300 text-amber-900 px-3 py-1 rounded-full hidden sm:block">
+        💡 點按卡片聽廣東話發音同認識字意
       </div>
     </div>
 
-    <!-- 軌道與車廂區域 -->
-    <div class="relative w-full">
-      <!-- 鐵路軌道底紋 -->
-      <div class="absolute left-4 right-4 top-1/2 -translate-y-1/2 h-4 bg-slate-300 rounded-full flex justify-between px-8 items-center -z-0">
-        <div class="w-full h-1 bg-slate-400"></div>
-      </div>
-
-      <!-- 三節火車車廂 (尋日 -> 今日 -> 聽日) -->
-      <div class="grid grid-cols-3 gap-2.5 sm:gap-4 md:gap-6 relative z-10">
-        
-        <!-- 左車廂：尋日 (上一站) -->
-        <div id="carriage-yesterday" data-slot="yesterday" class="carriage relative flex flex-col items-center bg-white border-4 border-slate-300 rounded-3xl p-2.5 sm:p-4 shadow-md transition-all duration-300 min-h-[220px] sm:min-h-[260px] md:min-h-[280px]">
-          <!-- 站點標籤 -->
-          <div class="w-full flex items-center justify-between border-b border-slate-150 pb-1.5 mb-2">
-            <span class="px-2 py-0.5 text-xs sm:text-sm font-bold bg-slate-100 text-slate-500 rounded-lg">上一站</span>
-            <span class="text-lg sm:text-2xl font-black text-slate-700">尋日</span>
-          </div>
-
-          <!-- 放置區 -->
-          <div class="drop-zone w-full flex-1 flex flex-col items-center justify-center border-2 border-dashed border-slate-300 rounded-2xl bg-slate-50/70 p-2 transition-colors relative">
-            <div class="placeholder-hint flex flex-col items-center text-slate-400 text-center pointer-events-none">
-              <svg class="w-10 h-10 mb-1 opacity-40 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v3m0 0v3m0-3h3m-3 0H9m12 0a9 9 0 11-18 0 9 9 0 0118 0z"></path>
-              </svg>
-              <span class="text-xs sm:text-sm font-bold">放入尋日事件</span>
-            </div>
-            <!-- 正確放置後掛載的卡片容器 -->
-            <div class="placed-card-container hidden w-full h-full flex flex-col items-center justify-center"></div>
-          </div>
-
-          <!-- 輪子裝飾 -->
-          <div class="w-full flex justify-around mt-2">
-            <div class="w-7 h-7 sm:w-9 sm:h-9 bg-slate-700 rounded-full border-4 border-slate-300 flex items-center justify-center shadow-inner"><div class="w-2.5 h-2.5 bg-slate-200 rounded-full"></div></div>
-            <div class="w-7 h-7 sm:w-9 sm:h-9 bg-slate-700 rounded-full border-4 border-slate-300 flex items-center justify-center shadow-inner"><div class="w-2.5 h-2.5 bg-slate-200 rounded-full"></div></div>
-          </div>
-        </div>
-
-        <!-- 中間車廂：今日 (現在站 - 粗黃色外框醒目標示) -->
-        <div id="carriage-today" data-slot="today" class="carriage relative flex flex-col items-center bg-amber-50/50 border-4 border-amber-400 active-carriage rounded-3xl p-2.5 sm:p-4 shadow-lg transition-all duration-300 min-h-[220px] sm:min-h-[260px] md:min-h-[280px]">
-          <!-- 站點標籤 -->
-          <div class="w-full flex items-center justify-between border-b border-amber-200 pb-1.5 mb-2">
-            <span class="px-2 py-0.5 text-xs sm:text-sm font-black bg-amber-400 text-amber-950 rounded-lg shadow-sm">★ 現在站</span>
-            <span class="text-xl sm:text-3xl font-black text-amber-900">今日</span>
-          </div>
-
-          <!-- 放置區 -->
-          <div class="drop-zone w-full flex-1 flex flex-col items-center justify-center border-2 border-dashed border-amber-400 rounded-2xl bg-amber-100/50 p-2 transition-colors relative">
-            <div class="placeholder-hint flex flex-col items-center text-amber-700 text-center pointer-events-none">
-              <svg class="w-10 h-10 mb-1 opacity-70 text-amber-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M12 9v3m0 0v3m0-3h3m-3 0H9m12 0a9 9 0 11-18 0 9 9 0 0118 0z"></path>
-              </svg>
-              <span class="text-xs sm:text-sm font-bold text-amber-800">放入今日事件</span>
-            </div>
-            <!-- 正確放置後掛載的卡片容器 -->
-            <div class="placed-card-container hidden w-full h-full flex flex-col items-center justify-center"></div>
-          </div>
-
-          <!-- 輪子裝飾 -->
-          <div class="w-full flex justify-around mt-2">
-            <div class="w-7 h-7 sm:w-9 sm:h-9 bg-amber-800 rounded-full border-4 border-amber-300 flex items-center justify-center shadow-inner"><div class="w-2.5 h-2.5 bg-amber-100 rounded-full"></div></div>
-            <div class="w-7 h-7 sm:w-9 sm:h-9 bg-amber-800 rounded-full border-4 border-amber-300 flex items-center justify-center shadow-inner"><div class="w-2.5 h-2.5 bg-amber-100 rounded-full"></div></div>
-          </div>
-        </div>
-
-        <!-- 右車廂：聽日 (下一站) -->
-        <div id="carriage-tomorrow" data-slot="tomorrow" class="carriage relative flex flex-col items-center bg-white border-4 border-slate-300 rounded-3xl p-2.5 sm:p-4 shadow-md transition-all duration-300 min-h-[220px] sm:min-h-[260px] md:min-h-[280px]">
-          <!-- 站點標籤 -->
-          <div class="w-full flex items-center justify-between border-b border-slate-150 pb-1.5 mb-2">
-            <span class="px-2 py-0.5 text-xs sm:text-sm font-bold bg-slate-100 text-slate-500 rounded-lg">下一站</span>
-            <span class="text-lg sm:text-2xl font-black text-slate-700">聽日</span>
-          </div>
-
-          <!-- 放置區 -->
-          <div class="drop-zone w-full flex-1 flex flex-col items-center justify-center border-2 border-dashed border-slate-300 rounded-2xl bg-slate-50/70 p-2 transition-colors relative">
-            <div class="placeholder-hint flex flex-col items-center text-slate-400 text-center pointer-events-none">
-              <svg class="w-10 h-10 mb-1 opacity-40 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v3m0 0v3m0-3h3m-3 0H9m12 0a9 9 0 11-18 0 9 9 0 0118 0z"></path>
-              </svg>
-              <span class="text-xs sm:text-sm font-bold">放入聽日事件</span>
-            </div>
-            <!-- 正確放置後掛載的卡片容器 -->
-            <div class="placed-card-container hidden w-full h-full flex flex-col items-center justify-center"></div>
-          </div>
-
-          <!-- 輪子裝飾 -->
-          <div class="w-full flex justify-around mt-2">
-            <div class="w-7 h-7 sm:w-9 sm:h-9 bg-slate-700 rounded-full border-4 border-slate-300 flex items-center justify-center shadow-inner"><div class="w-2.5 h-2.5 bg-slate-200 rounded-full"></div></div>
-            <div class="w-7 h-7 sm:w-9 sm:h-9 bg-slate-700 rounded-full border-4 border-slate-300 flex items-center justify-center shadow-inner"><div class="w-2.5 h-2.5 bg-slate-200 rounded-full"></div></div>
-          </div>
-        </div>
-
-      </div>
-    </div>
-
-    <!-- 底部操作區：三大高對比去背實物事件圖卡 (支援點擊選取或拖曳) -->
-    <div class="mt-4 pt-3 border-t-2 border-slate-100">
-      <div class="flex items-center justify-between mb-2">
-        <p class="text-xs md:text-sm font-bold text-slate-500">
-          💡 操作方式：可以<span class="text-amber-600 font-extrabold">按住拖上去</span>，或者<span class="text-blue-600 font-extrabold">點一下卡片再點車廂</span>
-        </p>
-        <span id="selected-status-badge" class="hidden text-xs font-bold text-blue-700 bg-blue-100 px-3 py-1 rounded-full animate-pulse">
-          已選取卡片，請點目標車廂
+    <!-- VIEW A: Preview & Read (認一認・聽一聽) -->
+    <section id="view-preview" class="w-full">
+      <div class="text-center mb-4">
+        <span class="inline-block bg-amber-200 text-amber-900 font-extrabold text-sm sm:text-base px-4 py-1 rounded-full shadow-sm mb-1">
+          點按喇叭仔或字卡，一齊聽廣東話點讀啦！
         </span>
       </div>
+      <!-- 5 Character Cards horizontally/grid wrapped -->
+      <div id="preview-cards-container" class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-3 sm:gap-4">
+        <!-- Rendered by JS -->
+      </div>
+      <!-- Quick Go To Game Button -->
+      <div class="mt-6 text-center">
+        <button id="btn-start-matching" class="px-8 py-3.5 bg-gradient-to-r from-orange-500 to-amber-500 hover:from-orange-600 hover:to-amber-600 active:scale-95 text-white text-lg sm:text-xl font-black rounded-2xl shadow-lg border-b-4 border-orange-700 transition flex items-center justify-center gap-3 mx-auto">
+          <span>我準備好喇！開始配對 🚀</span>
+        </button>
+      </div>
+    </section>
 
-      <div id="cards-container" class="grid grid-cols-3 gap-3 sm:gap-6 max-w-4xl mx-auto">
+    <!-- VIEW B: Matching Game (連一連・配對大挑戰) -->
+    <section id="view-match" class="w-full hidden">
+      <!-- Status Prompt -->
+      <div class="text-center mb-3">
+        <div id="match-hint-banner" class="inline-flex items-center gap-2 bg-amber-100 text-amber-900 border-2 border-amber-300 px-5 py-2 rounded-2xl text-base sm:text-lg font-bold shadow-sm">
+          <span>👇 請點選左邊嘅【中文字】，再點選右邊對應嘅【圖案】！</span>
+        </div>
+      </div>
+
+      <!-- Split Layout for Tablet Matching: Left (5 Characters) & Right (5 Pictograms) -->
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-6 bg-white/70 p-4 sm:p-6 rounded-3xl border-4 border-amber-200 shadow-xl backdrop-blur-sm">
         
-        <!-- 卡片 1：雨傘 (尋日落大雨) -->
-        <div id="card-umbrella" 
-             data-type="yesterday" 
-             data-name="雨傘" 
-             data-voice="尋日落大雨"
-             class="item-card bg-white border-2 border-slate-200 hover:border-blue-400 rounded-3xl p-3 sm:p-5 flex flex-col items-center justify-center shadow-md cursor-grab active:cursor-grabbing transform transition-all duration-200 hover:shadow-lg touch-none">
-          <div class="w-20 h-20 sm:w-28 sm:h-28 md:w-32 md:h-32 flex items-center justify-center pointer-events-none">
-            <!-- 清楚去背風格高對比 SVG：雨傘與雨滴 -->
-            <svg class="w-full h-full drop-shadow-md" viewBox="0 0 120 120" fill="none">
-              <!-- 雨滴 -->
-              <circle cx="28" cy="22" r="3.5" fill="#38BDF8"/>
-              <circle cx="92" cy="26" r="3.5" fill="#38BDF8"/>
-              <circle cx="60" cy="12" r="3.5" fill="#38BDF8"/>
-              <!-- 傘頂天線 -->
-              <path d="M60 22V16" stroke="#475569" stroke-width="4" stroke-linecap="round"/>
-              <!-- 傘面 -->
-              <path d="M18 64C18 40.804 36.804 22 60 22C83.196 22 102 40.804 102 64C102 65 101.2 66 100 66C88 66 84 59 74 59C64 59 60 66 60 66C60 66 56 59 46 59C36 59 32 66 20 66C18.8 66 18 65 18 64Z" fill="#0284C7"/>
-              <path d="M38 27C44.5 37 47 50 46 59C36 59 32 66 20 66C18.8 66 18 65 18 64C18 40.8 36.8 22 60 22C51.5 22 43.8 24 38 27Z" fill="#38BDF8"/>
-              <!-- 傘柄 -->
-              <path d="M60 64V94C60 100 54 103 49 99" stroke="#E2E8F0" stroke-width="5" stroke-linecap="round"/>
-              <path d="M60 64V94C60 100 54 103 49 99" stroke="#334155" stroke-width="4" stroke-linecap="round"/>
-            </svg>
+        <!-- Left: Word Cards -->
+        <div class="flex flex-col gap-3">
+          <div class="flex items-center justify-between pb-1 border-b-2 border-amber-200">
+            <span class="text-sm sm:text-base font-black text-amber-800 flex items-center gap-1.5">
+              <span>✍️</span> 獨體字卡片
+            </span>
+            <span class="text-xs font-bold text-amber-600">點按聽字音</span>
           </div>
-          <span class="mt-2 text-base sm:text-xl font-black text-slate-800 tracking-wide pointer-events-none">雨傘</span>
-          <span class="text-xs font-semibold text-slate-400 pointer-events-none">落大雨</span>
+          <div id="char-column" class="flex flex-col gap-2.5 sm:gap-3">
+            <!-- Populated by JS -->
+          </div>
         </div>
 
-        <!-- 卡片 2：積木 (今日玩積木) -->
-        <div id="card-blocks" 
-             data-type="today" 
-             data-name="積木" 
-             data-voice="今日玩積木"
-             class="item-card bg-white border-2 border-slate-200 hover:border-amber-400 rounded-3xl p-3 sm:p-5 flex flex-col items-center justify-center shadow-md cursor-grab active:cursor-grabbing transform transition-all duration-200 hover:shadow-lg touch-none">
-          <div class="w-20 h-20 sm:w-28 sm:h-28 md:w-32 md:h-32 flex items-center justify-center pointer-events-none">
-            <!-- 清楚去背風格高對比 SVG：幼兒積木 -->
-            <svg class="w-full h-full drop-shadow-md" viewBox="0 0 120 120" fill="none">
-              <!-- 底層紅色積木 -->
-              <rect x="18" y="66" width="38" height="34" rx="4" fill="#EF4444"/>
-              <rect x="22" y="70" width="30" height="26" rx="2" fill="#F87171"/>
-              <circle cx="28" cy="76" r="3" fill="#FEE2E2"/>
-              <circle cx="46" cy="76" r="3" fill="#FEE2E2"/>
-
-              <!-- 底層黃色長積木 -->
-              <rect x="62" y="66" width="40" height="34" rx="4" fill="#F59E0B"/>
-              <rect x="66" y="70" width="32" height="26" rx="2" fill="#FBBF24"/>
-              <circle cx="74" cy="76" r="3" fill="#FEF3C7"/>
-              <circle cx="90" cy="76" r="3" fill="#FEF3C7"/>
-
-              <!-- 上層藍色拱頂/三角積木 -->
-              <path d="M38 64H82L60 26L38 64Z" fill="#3B82F6"/>
-              <path d="M44 60H76L60 32L44 60Z" fill="#60A5FA"/>
-              <circle cx="60" cy="48" r="4" fill="#EFF6FF"/>
-            </svg>
+        <!-- Right: Pictogram Cards -->
+        <div class="flex flex-col gap-3">
+          <div class="flex items-center justify-between pb-1 border-b-2 border-amber-200">
+            <span class="text-sm sm:text-base font-black text-amber-800 flex items-center gap-1.5">
+              <span>🎨</span> 意思與象形圖案
+            </span>
+            <span class="text-xs font-bold text-amber-600">點按尋找配對</span>
           </div>
-          <span class="mt-2 text-base sm:text-xl font-black text-slate-800 tracking-wide pointer-events-none">積木</span>
-          <span class="text-xs font-semibold text-slate-400 pointer-events-none">玩積木</span>
-        </div>
-
-        <!-- 卡片 3：生日蛋糕 (聽日食蛋糕) -->
-        <div id="card-cake" 
-             data-type="tomorrow" 
-             data-name="生日蛋糕" 
-             data-voice="聽日食蛋糕"
-             class="item-card bg-white border-2 border-slate-200 hover:border-pink-400 rounded-3xl p-3 sm:p-5 flex flex-col items-center justify-center shadow-md cursor-grab active:cursor-grabbing transform transition-all duration-200 hover:shadow-lg touch-none">
-          <div class="w-20 h-20 sm:w-28 sm:h-28 md:w-32 md:h-32 flex items-center justify-center pointer-events-none">
-            <!-- 清楚去背風格高對比 SVG：生日蛋糕與蠟燭 -->
-            <svg class="w-full h-full drop-shadow-md" viewBox="0 0 120 120" fill="none">
-              <!-- 盤子 -->
-              <ellipse cx="60" cy="98" rx="44" ry="8" fill="#CBD5E1"/>
-              
-              <!-- 蛋糕底層 -->
-              <rect x="24" y="65" width="72" height="30" rx="6" fill="#F472B6"/>
-              <!-- 奶油裝飾邊緣 -->
-              <path d="M24 74C28 78 32 78 36 74C40 70 44 70 48 74C52 78 56 78 60 74C64 70 68 70 72 74C76 78 80 78 84 74C88 70 92 70 96 74V65H24V74Z" fill="#FFF1F2"/>
-              
-              <!-- 草莓裝飾 -->
-              <circle cx="36" cy="62" r="5" fill="#E11D48"/>
-              <circle cx="60" cy="62" r="5" fill="#E11D48"/>
-              <circle cx="84" cy="62" r="5" fill="#E11D48"/>
-
-              <!-- 蠟燭 -->
-              <rect x="57" y="38" width="6" height="22" rx="2" fill="#38BDF8"/>
-              <!-- 火焰 -->
-              <path d="M60 22C64 27 65 32 60 36C55 32 56 27 60 22Z" fill="#F59E0B"/>
-              <circle cx="60" cy="31" r="2" fill="#FEF08A"/>
-            </svg>
+          <div id="pic-column" class="flex flex-col gap-2.5 sm:gap-3">
+            <!-- Populated by JS -->
           </div>
-          <span class="mt-2 text-base sm:text-xl font-black text-slate-800 tracking-wide pointer-events-none">蛋糕</span>
-          <span class="text-xs font-semibold text-slate-400 pointer-events-none">食蛋糕</span>
         </div>
 
       </div>
-    </div>
+
+      <!-- Bottom controls inside match view -->
+      <div class="mt-4 flex items-center justify-between">
+        <button id="btn-back-to-preview" class="px-4 py-2 bg-slate-200 hover:bg-slate-300 text-slate-800 font-bold rounded-xl active:scale-95 text-xs sm:text-sm transition flex items-center gap-1">
+          <span>⬅️ 返去認一認</span>
+        </button>
+        <div class="text-amber-800 font-black text-sm sm:text-base">
+          已成功配對：<span id="matched-count" class="text-xl text-emerald-600 font-black">0</span> / 5
+        </div>
+        <button id="btn-reset-current-level" class="px-4 py-2 bg-amber-200 hover:bg-amber-300 text-amber-900 font-bold rounded-xl active:scale-95 text-xs sm:text-sm transition flex items-center gap-1">
+          <span>🔄 重新配對</span>
+        </button>
+      </div>
+    </section>
+
   </main>
 
-  <!-- 完成全關卡後之成就展示畫面 (低感官負荷、溫和自信激勵) -->
-  <div id="completion-modal" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm hidden flex items-center justify-center p-4 z-50">
-    <div class="bg-white rounded-3xl p-6 sm:p-8 max-w-lg w-full text-center shadow-2xl border-4 border-amber-300 transform transition-all scale-95 opacity-0 duration-300" id="completion-modal-box">
-      <div class="text-5xl sm:text-6xl mb-2 animate-bounce">🎉</div>
-      <h2 class="text-2xl sm:text-3xl font-black text-slate-800 mb-2">好叻呀！完成喇！</h2>
-      <p class="text-slate-600 text-base sm:text-lg font-bold mb-4">尋日、今日、聽日，時序火車出發囉！</p>
-      
-      <!-- 溫和回顧小火車示意 -->
-      <div class="bg-amber-50 rounded-2xl p-4 border border-amber-200 mb-6 flex items-center justify-around">
-        <div class="flex flex-col items-center">
-          <span class="text-xs font-bold text-slate-500">尋日</span>
-          <span class="text-2xl">☂️</span>
-          <span class="text-xs font-semibold text-slate-700">落大雨</span>
-        </div>
-        <span class="text-slate-300 font-black">➔</span>
-        <div class="flex flex-col items-center bg-white px-3 py-1 rounded-xl shadow-sm border border-amber-300">
-          <span class="text-xs font-black text-amber-600">今日</span>
-          <span class="text-2xl">🧱</span>
-          <span class="text-xs font-bold text-amber-900">玩積木</span>
-        </div>
-        <span class="text-slate-300 font-black">➔</span>
-        <div class="flex flex-col items-center">
-          <span class="text-xs font-bold text-slate-500">聽日</span>
-          <span class="text-2xl">🎂</span>
-          <span class="text-xs font-semibold text-slate-700">食蛋糕</span>
+  <footer class="w-full bg-amber-100/70 py-2 px-4 text-center text-xs font-bold text-amber-800 border-t border-amber-200">
+    <p>幼稚園高班校本教材・自然象形獨體字認讀訓練・支援觸控平板與廣東話發音</p>
+  </footer>
+
+  <!-- Level Success Celebratory Modal -->
+  <div id="modal-level-success" class="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 hidden">
+    <div class="bg-gradient-to-b from-amber-50 to-orange-50 border-4 border-amber-400 rounded-3xl max-w-md w-full p-6 text-center shadow-2xl transform transition-all scale-100 animate-[happyBounce_0.5s]">
+      <div class="text-6xl mb-2">🎉</div>
+      <h2 class="text-2xl sm:text-3xl font-black text-amber-950 mb-2">太好喇！全部答啱！</h2>
+      <p id="modal-success-msg" class="text-base text-amber-800 font-bold mb-5">
+        你好有耐性，順利完成呢關嘅獨體字配對！
+      </p>
+
+      <!-- Earned Stamp Badge -->
+      <div class="bg-white p-4 rounded-2xl border-2 border-dashed border-amber-300 mb-6 flex items-center justify-center gap-3">
+        <span class="text-4xl">🌟</span>
+        <div class="text-left">
+          <p class="text-xs font-bold text-slate-500">獲得探索小印章</p>
+          <p id="stamp-badge-title" class="text-lg font-black text-orange-600">獨體字小學士</p>
         </div>
       </div>
 
-      <div class="flex gap-3 justify-center">
-        <button id="modal-replay-btn" class="w-full py-3.5 bg-amber-500 hover:bg-amber-600 active:scale-95 text-white font-black text-lg rounded-2xl shadow-lg transition-transform">
-          再玩一次 🔄
+      <div class="flex flex-col gap-2.5">
+        <button id="btn-next-level" class="w-full py-3.5 bg-emerald-500 hover:bg-emerald-600 active:scale-95 text-white text-lg font-black rounded-2xl shadow-lg border-b-4 border-emerald-700 transition">
+          進入下一關 ➡️
+        </button>
+        <button id="btn-replay-modal" class="w-full py-2.5 bg-amber-200 hover:bg-amber-300 active:scale-95 text-amber-900 font-bold rounded-xl transition">
+          重玩呢一關 🔄
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Game Complete Modal (Finished all 8 levels) -->
+  <div id="modal-game-complete" class="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 hidden">
+    <div class="bg-gradient-to-b from-yellow-50 to-amber-100 border-4 border-yellow-400 rounded-3xl max-w-lg w-full p-6 sm:p-8 text-center shadow-2xl">
+      <div class="text-7xl mb-3">🏆</div>
+      <h2 class="text-2xl sm:text-3xl font-black text-amber-950 mb-2">恭喜你！完成全部 8 關！</h2>
+      <p class="text-base font-bold text-amber-800 mb-5">
+        你已經認識哂 15 個常見獨體字嘅字形、發音同意思喇！你真係太叻喇！
+      </p>
+      <div class="flex justify-center gap-2 mb-6 text-3xl">
+        ⭐ ⭐ ⭐ ⭐ ⭐ ⭐ ⭐ ⭐
+      </div>
+      <button id="btn-restart-game" class="w-full py-4 bg-orange-500 hover:bg-orange-600 active:scale-95 text-white text-xl font-black rounded-2xl shadow-xl border-b-4 border-orange-700 transition">
+        由第 1 關再玩一次 🚀
+      </button>
+    </div>
+  </div>
+
+  <!-- Teacher / Parent Setting Drawer / Modal -->
+  <div id="modal-teacher" class="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4 hidden">
+    <div class="bg-white border-4 border-amber-300 rounded-3xl max-w-md w-full p-5 sm:p-6 shadow-2xl">
+      <div class="flex items-center justify-between pb-3 border-b-2 border-slate-100">
+        <h3 class="text-lg font-black text-amber-900 flex items-center gap-2">
+          <span>⚙️</span> 教師與家長選單
+        </h3>
+        <button id="btn-close-teacher" class="text-slate-400 hover:text-slate-700 text-2xl font-bold p-1">&times;</button>
+      </div>
+
+      <div class="mt-4 space-y-4">
+        <!-- Direct Level Jumper -->
+        <div>
+          <label class="block text-xs font-bold text-slate-600 mb-1.5">跳轉關卡 (共 8 關)：</label>
+          <div class="grid grid-cols-4 gap-2" id="level-jumper-buttons">
+            <!-- 1 to 8 buttons -->
+          </div>
+        </div>
+
+        <!-- Speech Rate Controller -->
+        <div>
+          <label class="block text-xs font-bold text-slate-600 mb-1">廣東話語速調整：</label>
+          <div class="flex items-center gap-3">
+            <input id="speech-rate-slider" type="range" min="0.6" max="1.0" step="0.1" value="0.75" class="w-full accent-amber-500 cursor-pointer">
+            <span id="speech-rate-label" class="text-sm font-black text-amber-800 w-12">慢速</span>
+          </div>
+          <p class="text-[11px] text-slate-400 mt-0.5">預設已調校為慢速發音，有助認知困難學童清晰聆聽字音。</p>
+        </div>
+
+        <!-- Fullscreen Button -->
+        <div>
+          <button id="btn-toggle-fullscreen" class="w-full py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-800 font-bold rounded-xl text-sm flex items-center justify-center gap-2 border border-slate-300">
+            <span>📺</span> 切換全螢幕模式 (平板體驗更佳)
+          </button>
+        </div>
+      </div>
+
+      <div class="mt-6 pt-3 border-t border-slate-100 text-right">
+        <button id="btn-save-teacher" class="px-5 py-2 bg-amber-500 hover:bg-amber-600 text-white font-bold rounded-xl text-sm">
+          確定完成
         </button>
       </div>
     </div>
   </div>
 
   <script>
-    /* ==========================================================================
-       1. 溫和音效合成器 (Web Audio API - 無需外部音檔，溫暖正向五聲音階)
-       ========================================================================== */
-    class CalmSoundController {
-      constructor() {
-        this.ctx = null;
+    /*
+     * TARGET 15 SINGLE-COMPONENT CHARACTERS (獨體字):
+     * 日、人、田、口、水、火、石、木、女、山、心、中、大、十、土
+     * Detailed with Cantonese phonetic cues, meaning explanation, and child-friendly SVGs.
+     */
+    const CHARACTERS_DB = [
+      {
+        char: "日",
+        jyutping: "jat6",
+        pronunciationText: "日。太陽個日。圓圓嘅太陽喺天上面照發光。",
+        meaning: "太陽 / 白天",
+        clue: "太陽個日",
+        color: "#F59E0B", // amber
+        svg: `<svg viewBox="0 0 100 100" class="w-full h-full">
+          <circle cx="50" cy="50" r="24" fill="#F59E0B" />
+          <circle cx="50" cy="50" r="16" fill="#FDE047" />
+          <!-- Ray lines -->
+          <line x1="50" y1="12" x2="50" y2="4" stroke="#F59E0B" stroke-width="5" stroke-linecap="round"/>
+          <line x1="50" y1="88" x2="50" y2="96" stroke="#F59E0B" stroke-width="5" stroke-linecap="round"/>
+          <line x1="12" y1="50" x2="4" y2="50" stroke="#F59E0B" stroke-width="5" stroke-linecap="round"/>
+          <line x1="88" y1="50" x2="96" y2="50" stroke="#F59E0B" stroke-width="5" stroke-linecap="round"/>
+          <line x1="23" y1="23" x2="17" y2="17" stroke="#F59E0B" stroke-width="5" stroke-linecap="round"/>
+          <line x1="77" y1="77" x2="83" y2="83" stroke="#F59E0B" stroke-width="5" stroke-linecap="round"/>
+          <line x1="23" y1="77" x2="17" y2="83" stroke="#F59E0B" stroke-width="5" stroke-linecap="round"/>
+          <line x1="77" y1="23" x2="83" y2="17" stroke="#F59E0B" stroke-width="5" stroke-linecap="round"/>
+          <!-- Smile face for kid warmth -->
+          <circle cx="44" cy="47" r="2.5" fill="#78350F"/>
+          <circle cx="56" cy="47" r="2.5" fill="#78350F"/>
+          <path d="M44 54 Q50 58 56 54" stroke="#78350F" stroke-width="2.5" fill="none" stroke-linecap="round"/>
+        </svg>`
+      },
+      {
+        char: "人",
+        jyutping: "jan4",
+        pronunciationText: "人。兩條腿站立行路嘅人。",
+        meaning: "人 / 小朋友",
+        clue: "人類個人",
+        color: "#3B82F6", // blue
+        svg: `<svg viewBox="0 0 100 100" class="w-full h-full">
+          <!-- Head -->
+          <circle cx="50" cy="28" r="14" fill="#FDBA74"/>
+          <!-- Hair -->
+          <path d="M38 24 Q50 14 62 24" fill="#334155"/>
+          <!-- Happy face -->
+          <circle cx="45" cy="28" r="2" fill="#1E293B"/>
+          <circle cx="55" cy="28" r="2" fill="#1E293B"/>
+          <path d="M46 34 Q50 38 54 34" stroke="#1E293B" stroke-width="2" fill="none" stroke-linecap="round"/>
+          <!-- Body and legs showing 人 stroke shape -->
+          <path d="M50 42 Q40 60 25 85" stroke="#2563EB" stroke-width="8" stroke-linecap="round" fill="none"/>
+          <path d="M45 56 Q55 70 75 85" stroke="#2563EB" stroke-width="8" stroke-linecap="round" fill="none"/>
+        </svg>`
+      },
+      {
+        char: "田",
+        jyutping: "tin4",
+        pronunciationText: "田。農田個田。一格格種植蔬菜嘅稻田。",
+        meaning: "農田 / 田地",
+        clue: "農田個田",
+        color: "#10B981", // green
+        svg: `<svg viewBox="0 0 100 100" class="w-full h-full">
+          <rect x="20" y="20" width="60" height="60" rx="10" fill="#BBF7D0" stroke="#059669" stroke-width="6"/>
+          <line x1="50" y1="20" x2="50" y2="80" stroke="#059669" stroke-width="6"/>
+          <line x1="20" y1="50" x2="80" y2="50" stroke="#059669" stroke-width="6"/>
+          <!-- Little sprouts inside squares -->
+          <circle cx="35" cy="35" r="4" fill="#10B981"/>
+          <circle cx="65" cy="35" r="4" fill="#10B981"/>
+          <circle cx="35" cy="65" r="4" fill="#10B981"/>
+          <circle cx="65" cy="65" r="4" fill="#10B981"/>
+        </svg>`
+      },
+      {
+        char: "口",
+        jyutping: "hau2",
+        pronunciationText: "口。嘴巴個口。可以笑同講嘢嘅嘴仔。",
+        meaning: "嘴巴 / 說話",
+        clue: "嘴巴個口",
+        color: "#F43F5E", // rose
+        svg: `<svg viewBox="0 0 100 100" class="w-full h-full">
+          <!-- Big open smiling mouth -->
+          <rect x="22" y="25" width="56" height="50" rx="14" fill="#FFE4E6" stroke="#E11D48" stroke-width="7"/>
+          <path d="M30 45 Q50 65 70 45" fill="#E11D48"/>
+          <!-- Little teeth & tongue -->
+          <rect x="42" y="44" width="16" height="6" rx="2" fill="#FFFFFF"/>
+          <circle cx="50" cy="57" r="7" fill="#FDA4AF"/>
+        </svg>`
+      },
+      {
+        char: "水",
+        jyutping: "seoi2",
+        pronunciationText: "水。飲水個水。清涼流動嘅水滴同河流。",
+        meaning: "流動水滴 / 河流",
+        clue: "喝水個水",
+        color: "#06B6D4", // cyan
+        svg: `<svg viewBox="0 0 100 100" class="w-full h-full">
+          <!-- Water drop -->
+          <path d="M50 16 C50 16 26 48 26 64 C26 77 37 87 50 87 C63 87 74 77 74 64 C74 48 50 16 50 16 Z" fill="#67E8F9" stroke="#0891B2" stroke-width="5"/>
+          <path d="M42 46 C42 46 34 56 34 64 C34 70 38 74 44 75" fill="none" stroke="#FFFFFF" stroke-width="4" stroke-linecap="round"/>
+        </svg>`
+      },
+      {
+        char: "火",
+        jyutping: "fo2",
+        pronunciationText: "火。火焰個火。溫暖明亮嘅火苗。",
+        meaning: "燃燒火焰 / 火苗",
+        clue: "火焰個火",
+        color: "#EF4444", // red
+        svg: `<svg viewBox="0 0 100 100" class="w-full h-full">
+          <!-- Fire shape -->
+          <path d="M50 14 C56 28 66 38 72 50 C80 64 72 82 56 86 C70 74 65 58 56 50 C54 62 46 70 38 72 C30 65 28 50 36 38 C42 42 45 36 44 30 C44 22 50 14 50 14 Z" fill="#F87171" stroke="#DC2626" stroke-width="4"/>
+          <!-- Inner yellow flame -->
+          <path d="M50 42 C53 50 60 58 60 66 C60 76 52 82 48 83 C55 76 53 66 48 62 C46 68 42 72 38 70 C36 62 42 54 48 48 Z" fill="#FDE047"/>
+        </svg>`
+      },
+      {
+        char: "石",
+        jyutping: "sek6",
+        pronunciationText: "石。石頭個石。硬朗圓碌碌嘅小石頭。",
+        meaning: "堅硬石頭",
+        clue: "石頭個石",
+        color: "#64748B", // slate
+        svg: `<svg viewBox="0 0 100 100" class="w-full h-full">
+          <!-- Big rock shape -->
+          <polygon points="30,30 68,22 84,52 68,82 24,78 16,50" fill="#CBD5E1" stroke="#475569" stroke-width="6" stroke-linejoin="round"/>
+          <line x1="38" y1="36" x2="52" y2="60" stroke="#94A3B8" stroke-width="4" stroke-linecap="round"/>
+          <line x1="52" y1="60" x2="72" y2="52" stroke="#94A3B8" stroke-width="4" stroke-linecap="round"/>
+          <circle cx="34" cy="62" r="3" fill="#64748B"/>
+          <circle cx="62" cy="38" r="2.5" fill="#64748B"/>
+        </svg>`
+      },
+      {
+        char: "木",
+        jyutping: "muk6",
+        pronunciationText: "木。樹木個木。有樹幹同綠色樹葉嘅大樹。",
+        meaning: "樹木 / 木頭",
+        clue: "樹木個木",
+        color: "#16A34A", // green
+        svg: `<svg viewBox="0 0 100 100" class="w-full h-full">
+          <!-- Tree trunk -->
+          <rect x="44" y="45" width="12" height="42" rx="3" fill="#92400E"/>
+          <!-- Tree leaves canopy mimicking tree structure -->
+          <circle cx="50" cy="35" r="24" fill="#4ADE80" stroke="#16A34A" stroke-width="5"/>
+          <circle cx="36" cy="42" r="14" fill="#22C55E"/>
+          <circle cx="64" cy="42" r="14" fill="#22C55E"/>
+          <!-- Root branch branches -->
+          <path d="M44 80 L32 87" stroke="#92400E" stroke-width="4" stroke-linecap="round"/>
+          <path d="M56 80 L68 87" stroke="#92400E" stroke-width="4" stroke-linecap="round"/>
+        </svg>`
+      },
+      {
+        char: "女",
+        jyutping: "neoi5",
+        pronunciationText: "女。女孩個女。留住長頭髮嘅可愛女仔。",
+        meaning: "女孩 / 媽媽",
+        clue: "女孩個女",
+        color: "#EC4899", // pink
+        svg: `<svg viewBox="0 0 100 100" class="w-full h-full">
+          <!-- Girl face and hair with bow -->
+          <circle cx="50" cy="34" r="15" fill="#FED7AA"/>
+          <!-- Hair & twin tails -->
+          <path d="M34 30 C30 15 70 15 66 30" fill="#374151"/>
+          <ellipse cx="26" cy="38" rx="7" ry="11" fill="#374151"/>
+          <ellipse cx="74" cy="38" rx="7" ry="11" fill="#374151"/>
+          <!-- Pink Bow ribbon -->
+          <polygon points="46,18 42,12 46,15 50,15 54,12 50,18" fill="#F43F5E"/>
+          <circle cx="48" cy="15" r="2.5" fill="#FB7185"/>
+          <!-- Happy smiling expression -->
+          <circle cx="45" cy="33" r="2" fill="#1F2937"/>
+          <circle cx="55" cy="33" r="2" fill="#1F2937"/>
+          <path d="M46 39 Q50 43 54 39" stroke="#E11D48" stroke-width="2" fill="none" stroke-linecap="round"/>
+          <!-- Dress -->
+          <path d="M40 52 L30 84 L70 84 L60 52 Z" fill="#F472B6" stroke="#DB2777" stroke-width="4" stroke-linejoin="round"/>
+        </svg>`
+      },
+      {
+        char: "山",
+        jyutping: "saan1",
+        pronunciationText: "山。高山個山。連綿起伏嘅三個山峰。",
+        meaning: "群山 / 高山",
+        clue: "高山個山",
+        color: "#059669", // emerald
+        svg: `<svg viewBox="0 0 100 100" class="w-full h-full">
+          <!-- 3 mountain peaks reflecting 山 shape -->
+          <polygon points="12,82 32,45 50,82" fill="#6EE7B7" stroke="#047857" stroke-width="4" stroke-linejoin="round"/>
+          <polygon points="50,82 68,48 88,82" fill="#6EE7B7" stroke="#047857" stroke-width="4" stroke-linejoin="round"/>
+          <polygon points="28,82 50,22 72,82" fill="#34D399" stroke="#047857" stroke-width="5" stroke-linejoin="round"/>
+          <!-- Snow caps on tallest center mountain -->
+          <polygon points="45,35 50,23 55,35 51,32" fill="#FFFFFF"/>
+        </svg>`
+      },
+      {
+        char: "心",
+        jyutping: "sam1",
+        pronunciationText: "心。愛心個心。有愛心、紅卜卜嘅心形。",
+        meaning: "愛心 / 內心",
+        clue: "愛心個心",
+        color: "#E11D48", // rose
+        svg: `<svg viewBox="0 0 100 100" class="w-full h-full">
+          <path d="M50 78 C25 60 16 42 22 28 C28 16 42 18 50 29 C58 18 72 16 78 28 C84 42 75 60 50 78 Z" fill="#FB7185" stroke="#E11D48" stroke-width="6"/>
+          <!-- Small shine highlight -->
+          <ellipse cx="36" cy="32" rx="4" ry="7" transform="rotate(-30 36 32)" fill="#FFFFFF" opacity="0.7"/>
+        </svg>`
+      },
+      {
+        char: "中",
+        jyutping: "zung1",
+        pronunciationText: "中。中心個中。一枝箭射穿正中間嘅靶心。",
+        meaning: "中間 / 靶心",
+        clue: "中間個中",
+        color: "#8B5CF6", // purple
+        svg: `<svg viewBox="0 0 100 100" class="w-full h-full">
+          <!-- Target bullseye -->
+          <circle cx="50" cy="50" r="32" fill="#DDD6FE" stroke="#7C3AED" stroke-width="5"/>
+          <circle cx="50" cy="50" r="18" fill="#A78BFA" stroke="#6D28D9" stroke-width="4"/>
+          <circle cx="50" cy="50" r="7" fill="#6D28D9"/>
+          <!-- Arrow/line through middle representing 中 -->
+          <line x1="50" y1="10" x2="50" y2="90" stroke="#4C1D95" stroke-width="7" stroke-linecap="round"/>
+        </svg>`
+      },
+      {
+        char: "大",
+        jyutping: "daai6",
+        pronunciationText: "大。大小個大。張開手腳、好似大大個人咁。",
+        meaning: "巨大 / 大張手腳",
+        clue: "大小個大",
+        color: "#F97316", // orange
+        svg: `<svg viewBox="0 0 100 100" class="w-full h-full">
+          <!-- Head -->
+          <circle cx="50" cy="22" r="11" fill="#FDBA74"/>
+          <!-- Wide spread arms and legs -->
+          <line x1="16" y1="42" x2="84" y2="42" stroke="#EA580C" stroke-width="8" stroke-linecap="round"/>
+          <line x1="50" y1="33" x2="50" y2="60" stroke="#EA580C" stroke-width="8" stroke-linecap="round"/>
+          <line x1="50" y1="60" x2="26" y2="86" stroke="#EA580C" stroke-width="8" stroke-linecap="round"/>
+          <line x1="50" y1="60" x2="74" y2="86" stroke="#EA580C" stroke-width="8" stroke-linecap="round"/>
+          <!-- Sparkles -->
+          <text x="14" y="30" font-size="14" fill="#F59E0B">✨</text>
+          <text x="76" y="30" font-size="14" fill="#F59E0B">✨</text>
+        </svg>`
+      },
+      {
+        char: "十",
+        jyutping: "sap6",
+        pronunciationText: "十。數字十。橫加一豎、十全十美嘅十字。",
+        meaning: "數字 10 / 十字",
+        clue: "數字十個十",
+        color: "#0284C7", // light blue
+        svg: `<svg viewBox="0 0 100 100" class="w-full h-full">
+          <!-- Plus / Cross shape with 10 count badge -->
+          <rect x="42" y="16" width="16" height="68" rx="8" fill="#38BDF8" stroke="#0284C7" stroke-width="4"/>
+          <rect x="16" y="42" width="68" height="16" rx="8" fill="#38BDF8" stroke="#0284C7" stroke-width="4"/>
+          <!-- Inner badge with "10" -->
+          <circle cx="50" cy="50" r="14" fill="#0284C7"/>
+          <text x="50" y="55" font-size="14" font-weight="900" fill="#FFFFFF" text-anchor="middle" font-family="sans-serif">10</text>
+        </svg>`
+      },
+      {
+        char: "土",
+        jyutping: "tou2",
+        pronunciationText: "土。泥土個土。肥沃嘅泥土上面生出小嫩芽。",
+        meaning: "泥土 / 大地",
+        clue: "泥土個土",
+        color: "#A16207", // brown/amber
+        svg: `<svg viewBox="0 0 100 100" class="w-full h-full">
+          <!-- Soil ground mound -->
+          <path d="M16 80 Q50 56 84 80 Z" fill="#D97706" stroke="#92400E" stroke-width="5"/>
+          <rect x="12" y="80" width="76" height="8" rx="4" fill="#B45309"/>
+          <!-- Growing green sprout -->
+          <line x1="50" y1="62" x2="50" y2="38" stroke="#16A34A" stroke-width="5" stroke-linecap="round"/>
+          <path d="M50 44 Q40 32 34 38 Q40 50 50 46" fill="#4ADE80" stroke="#16A34A" stroke-width="2"/>
+          <path d="M50 40 Q60 28 66 34 Q60 46 50 42" fill="#4ADE80" stroke="#16A34A" stroke-width="2"/>
+        </svg>`
       }
+    ];
 
-      initCtx() {
-        if (!this.ctx) {
-          const AudioContext = window.AudioContext || window.webkitAudioContext;
-          this.ctx = new AudioContext();
+    /* STAMP TITLES FOR THE 8 LEVELS */
+    const LEVEL_TITLES = [
+      "自然小探索家",
+      "認字聰明小神童",
+      "漢字火眼金睛",
+      "象形字好朋友",
+      "字形記憶小達人",
+      "獨體字小隊長",
+      "文字積木大師",
+      "獨體字大博士 🏆"
+    ];
+
+    const TOTAL_LEVELS = 8;
+    const WORDS_PER_LEVEL = 5;
+
+    let currentLevel = 1; // 1 to 8
+    let currentWords = []; // 5 selected character objects
+    let selectedCharId = null; // Currently clicked character card
+    let matchedPairs = new Set(); // Set of matched char keys
+    let speechRate = 0.75; // Slower default for SEN K3 clarity
+    let audioCtx = null;
+
+    // Encouragement Phrases in Cantonese
+    const PRAISE_PHRASES = [
+      "好叻呀！答啱喇！",
+      "真係太棒喇！好聰明！",
+      "答得好！好有心思！",
+      "啱哂！好犀利呀！",
+      "抵讚！完全正確！"
+    ];
+
+    const RETRY_PHRASES = [
+      "唔緊要，再睇清楚啲，再試一次啦！",
+      "差少少咋，摸一摸卡片再試多次啦！",
+      "慢慢嚟，聽多次發音先啦！"
+    ];
+
+    // Initialize Web Audio Context on first user tap
+    function getAudioContext() {
+      if (!audioCtx) {
+        const AudioContext = window.AudioContext || window.webkitAudioContext;
+        if (AudioContext) {
+          audioCtx = new AudioContext();
         }
-        if (this.ctx.state === 'suspended') {
-          this.ctx.resume();
-        }
       }
-
-      // 溫暖的成功柔和雙音（杜絕尖銳刺耳或過大音量）
-      playSoftSuccess() {
-        this.initCtx();
-        const now = this.ctx.currentTime;
-        
-        // 音符 1: C5 (523.25Hz)
-        const osc1 = this.ctx.createOscillator();
-        const gain1 = this.ctx.createGain();
-        osc1.type = 'sine';
-        osc1.frequency.setValueAtTime(523.25, now);
-        gain1.gain.setValueAtTime(0.001, now);
-        gain1.gain.exponentialRampToValueAtTime(0.2, now + 0.05);
-        gain1.gain.exponentialRampToValueAtTime(0.0001, now + 0.45);
-        osc1.connect(gain1);
-        gain1.connect(this.ctx.destination);
-        osc1.start(now);
-        osc1.stop(now + 0.45);
-
-        // 音符 2: G5 (783.99Hz)
-        const osc2 = this.ctx.createOscillator();
-        const gain2 = this.ctx.createGain();
-        osc2.type = 'sine';
-        osc2.frequency.setValueAtTime(783.99, now + 0.12);
-        gain2.gain.setValueAtTime(0.001, now + 0.12);
-        gain2.gain.exponentialRampToValueAtTime(0.25, now + 0.17);
-        gain2.gain.exponentialRampToValueAtTime(0.0001, now + 0.7);
-        osc2.connect(gain2);
-        gain2.connect(this.ctx.destination);
-        osc2.start(now + 0.12);
-        osc2.stop(now + 0.7);
+      if (audioCtx && audioCtx.state === 'suspended') {
+        audioCtx.resume();
       }
+      return audioCtx;
+    }
 
-      // 完成三部曲之歡樂柔和小調
-      playCelebrationFanfare() {
-        this.initCtx();
-        const notes = [523.25, 659.25, 783.99, 1046.50]; // C - E - G - High C
-        const start = this.ctx.currentTime;
-        notes.forEach((freq, idx) => {
-          const osc = this.ctx.createOscillator();
-          const gain = this.ctx.createGain();
+    // Gentle Cheerful Chime for success (Web Audio Synthesizer)
+    function playChime(success = true) {
+      try {
+        const ctx = getAudioContext();
+        if (!ctx) return;
+        const now = ctx.currentTime;
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+
+        osc.connect(gain);
+        gain.connect(ctx.destination);
+
+        if (success) {
+          // Cheerful ascending arpeggio (C5 -> E5 -> G5 -> C6)
           osc.type = 'triangle';
-          osc.frequency.setValueAtTime(freq, start + (idx * 0.14));
-          gain.gain.setValueAtTime(0.001, start + (idx * 0.14));
-          gain.gain.exponentialRampToValueAtTime(0.18, start + (idx * 0.14) + 0.04);
-          gain.gain.exponentialRampToValueAtTime(0.0001, start + (idx * 0.14) + 0.5);
-          osc.connect(gain);
-          gain.connect(this.ctx.destination);
-          osc.start(start + (idx * 0.14));
-          osc.stop(start + (idx * 0.14) + 0.55);
-        });
+          osc.frequency.setValueAtTime(523.25, now); // C5
+          osc.frequency.exponentialRampToValueAtTime(659.25, now + 0.1); // E5
+          osc.frequency.exponentialRampToValueAtTime(783.99, now + 0.2); // G5
+          osc.frequency.exponentialRampToValueAtTime(1046.50, now + 0.3); // C6
+
+          gain.gain.setValueAtTime(0.2, now);
+          gain.gain.exponentialRampToValueAtTime(0.001, now + 0.6);
+
+          osc.start(now);
+          osc.stop(now + 0.6);
+        } else {
+          // Soft wobble (non-punishing warm tone)
+          osc.type = 'sine';
+          osc.frequency.setValueAtTime(320, now);
+          osc.frequency.exponentialRampToValueAtTime(280, now + 0.15);
+
+          gain.gain.setValueAtTime(0.12, now);
+          gain.gain.exponentialRampToValueAtTime(0.001, now + 0.35);
+
+          osc.start(now);
+          osc.stop(now + 0.35);
+        }
+      } catch (e) {
+        console.warn("Audio Context playback error:", e);
       }
     }
 
-    const soundManager = new CalmSoundController();
-
-    /* ==========================================================================
-       2. 廣東話精準口語發音模組 (嚴格3-5字限制，支援zh-HK)
-       ========================================================================== */
-    function speakCantonese(phrase, onEndCallback) {
+    function speakCantonese(text, onEndCallback = null) {
       if (!('speechSynthesis' in window)) {
         if (onEndCallback) onEndCallback();
         return;
       }
 
-      window.speechSynthesis.cancel(); // 終止前置積壓語音
-      const utterance = new SpeechSynthesisUtterance(phrase);
-      utterance.lang = 'zh-HK'; // 指定廣東話
-      utterance.rate = 0.85;    // 專為4歲幼童稍微調緩語速，增強咬字辨析度
-      utterance.pitch = 1.1;    // 柔和親和聲調
+      window.speechSynthesis.cancel(); // Stop any ongoing speech
 
-      // 檢索最佳廣東話或中文語音引擎
+      const utterance = new SpeechSynthesisUtterance(text);
+      utterance.rate = speechRate;
+      utterance.pitch = 1.1; // Slightly higher pitch for friendly child warmth
+
+      // Find Cantonese voice (zh-HK), fallback to zh-TW or zh
       const voices = window.speechSynthesis.getVoices();
-      const hkVoice = voices.find(v => v.lang === 'zh-HK' || v.lang.includes('yue') || v.lang === 'zh_HK');
+      const hkVoice = voices.find(v => v.lang === 'zh-HK' || v.lang === 'zh_HK' || v.lang.includes('HK'));
+      const twVoice = voices.find(v => v.lang === 'zh-TW' || v.lang === 'zh_TW');
+
       if (hkVoice) {
         utterance.voice = hkVoice;
+        utterance.lang = 'zh-HK';
+      } else if (twVoice) {
+        utterance.voice = twVoice;
+        utterance.lang = 'zh-TW';
+      } else {
+        utterance.lang = 'zh-HK';
       }
 
       if (onEndCallback) {
         utterance.onend = onEndCallback;
+        utterance.onerror = onEndCallback;
       }
+
       window.speechSynthesis.speak(utterance);
     }
 
-    // 確保部分瀏覽器異步加載語音清單
+    // Ensure voices are loaded in browsers that fetch them asynchronously
     if ('speechSynthesis' in window) {
       window.speechSynthesis.onvoiceschanged = () => {
-        // ready voices
+        // Pre-load
       };
     }
 
-    /* ==========================================================================
-       3. 步驟狀態管理與教案時序配置
-       ========================================================================== */
-    const GAME_STEPS = [
-      {
-        stepIndex: 1,
-        targetKey: 'today',
-        phrase: '今日玩積木',          // 嚴格5字廣東話
-        tutorHint: '導師引導：指住中間車廂「今日」，問幼兒「今日做咩呀？」',
-        affirmation: '係今日！',
-        activeCarriageId: 'carriage-today'
-      },
-      {
-        stepIndex: 2,
-        targetKey: 'yesterday',
-        phrase: '尋日落大雨',          // 嚴格5字廣東話
-        tutorHint: '導師引導：指住左邊「尋日」，提示幼兒「尋日過去咗落雨」',
-        affirmation: '係尋日！',
-        activeCarriageId: 'carriage-yesterday'
-      },
-      {
-        stepIndex: 3,
-        targetKey: 'tomorrow',
-        phrase: '聽日食蛋糕',          // 嚴格5字廣東話
-        tutorHint: '導師引導：指住右邊「聽日」，引導幼兒「聽日未到去食蛋糕」',
-        affirmation: '係聽日！',
-        activeCarriageId: 'carriage-tomorrow'
+    // Helper to shuffle an array
+    function shuffleArray(array) {
+      const arr = [...array];
+      for (let i = arr.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [arr[i], arr[j]] = [arr[j], arr[i]];
       }
-    ];
+      return arr;
+    }
 
-    let currentStepIdx = 0;
-    let selectedItemCard = null; // 支援點選放置模式
-    const completedItems = new Set();
+    // Pick 5 words for level. To ensure rich exposure across 8 levels:
+    // Seeds vary per level so each level gives fresh mix
+    function pickWordsForLevel(lvl) {
+      // Deterministic yet pleasantly mixed rotation based on level number
+      const shuffledAll = shuffleArray(CHARACTERS_DB);
+      return shuffledAll.slice(0, WORDS_PER_LEVEL);
+    }
 
-    // DOM 元素引用
-    const instructionText = document.getElementById('instruction-text');
-    const tutorSpeechPrompt = document.getElementById('tutor-speech-prompt');
-    const selectedStatusBadge = document.getElementById('selected-status-badge');
-    const completionModal = document.getElementById('completion-modal');
-    const completionModalBox = document.getElementById('completion-modal-box');
-    const btnReplayAudio = document.getElementById('btn-replay-audio');
-    const btnResetAll = document.getElementById('btn-reset-all');
-    const modalReplayBtn = document.getElementById('modal-replay-btn');
+    function updateProgressIndicators() {
+      const levelDisplay = document.getElementById('level-display');
+      levelDisplay.innerText = `第 ${currentLevel} / ${TOTAL_LEVELS} 關`;
 
-    /* ==========================================================================
-       4. 介面與鷹架狀態推進邏輯
-       ========================================================================== */
-    function updateGameStepVisuals(playVoice = true) {
-      if (currentStepIdx >= GAME_STEPS.length) {
-        showCelebration();
-        return;
-      }
-
-      const currentConfig = GAME_STEPS[currentStepIdx];
-
-      // 更新畫面文字
-      instructionText.textContent = currentConfig.phrase;
-      tutorSpeechPrompt.textContent = currentConfig.tutorHint;
-
-      // 更新車廂聚焦點
-      document.querySelectorAll('.carriage').forEach(el => {
-        el.classList.remove('active-carriage');
-      });
-
-      const currentCarriageEl = document.getElementById(currentConfig.activeCarriageId);
-      if (currentCarriageEl) {
-        currentCarriageEl.classList.add('active-carriage');
-      }
-
-      // 播放廣東話指令
-      if (playVoice) {
-        speakCantonese(currentConfig.phrase);
+      const starsContainer = document.getElementById('stars-container');
+      starsContainer.innerHTML = '';
+      for (let i = 1; i <= TOTAL_LEVELS; i++) {
+        const star = document.createElement('div');
+        star.className = `w-6 h-6 sm:w-7 sm:h-7 rounded-full flex items-center justify-center text-xs font-bold transition-transform ${
+          i < currentLevel
+            ? 'bg-amber-400 text-amber-950 shadow-sm scale-95'
+            : i === currentLevel
+            ? 'bg-orange-500 text-white shadow-md ring-2 ring-orange-300 scale-110 font-black'
+            : 'bg-slate-200 text-slate-400'
+        }`;
+        star.innerHTML = i < currentLevel ? '⭐' : i;
+        starsContainer.appendChild(star);
       }
     }
 
-    /* ==========================================================================
-       5. 配對成功與錯誤反饋處置
-       ========================================================================== */
-    function handleCorrectPlacement(cardType, cardElement, targetCarriageElement) {
-      const currentConfig = GAME_STEPS[currentStepIdx];
-      
-      // 播放輕柔成功音效
-      soundManager.playSoftSuccess();
+    // Render Preview View (認一認・聽一聽)
+    function renderPreviewView() {
+      const container = document.getElementById('preview-cards-container');
+      container.innerHTML = '';
 
-      // 移動並固化圖卡於車廂內
-      const dropZone = targetCarriageElement.querySelector('.drop-zone');
-      const placeholderHint = targetCarriageElement.querySelector('.placeholder-hint');
-      const placedContainer = targetCarriageElement.querySelector('.placed-card-container');
+      currentWords.forEach((item, index) => {
+        const card = document.createElement('div');
+        card.className = "bg-white p-3 sm:p-4 rounded-3xl border-3 border-amber-200 shadow-md flex flex-col items-center justify-between text-center relative group hover:border-amber-400 transition transform hover:-translate-y-1";
+        card.style.borderColor = `${item.color}40`;
 
-      placeholderHint.classList.add('hidden');
-      placedContainer.classList.remove('hidden');
-      
-      // 複製卡片內容至車廂內，同時添加成功勾號
-      const cardClone = cardElement.cloneNode(true);
-      cardClone.id = `${cardClone.id}-placed`;
-      cardClone.className = "w-full h-full flex flex-col items-center justify-center p-1 pointer-events-none relative";
-      
-      // 加入綠色勾號徽章
-      const checkBadge = document.createElement('div');
-      checkBadge.className = 'checkmark-pop absolute top-1 right-2 bg-emerald-500 text-white rounded-full p-1 shadow-md';
-      checkBadge.innerHTML = `<svg class="w-5 h-5 sm:w-6 sm:h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M5 13l4 4L19 7"></path></svg>`;
-      cardClone.appendChild(checkBadge);
+        card.innerHTML = `
+          <!-- Character Header -->
+          <div class="text-xs font-black px-2 py-0.5 rounded-full text-white mb-1.5" style="background-color: ${item.color}">
+            第 ${index + 1} 個字
+          </div>
 
-      placedContainer.innerHTML = '';
-      placedContainer.appendChild(cardClone);
+          <!-- Large Character with Clear Strokes -->
+          <div class="char-font text-5xl sm:text-6xl my-1 font-black" style="color: ${item.color};">
+            ${item.char}
+          </div>
 
-      // 原卡片半透明並停用
-      cardElement.classList.add('opacity-20', 'pointer-events-none', 'scale-90');
-      completedItems.add(cardType);
+          <!-- Pictogram illustration -->
+          <div class="w-16 h-16 sm:w-20 sm:h-20 my-2 p-1.5 bg-amber-50 rounded-2xl flex items-center justify-center border border-amber-100">
+            ${item.svg}
+          </div>
 
-      // 清理選取狀態
-      clearSelection();
+          <!-- Meaning label -->
+          <div class="text-sm sm:text-base font-extrabold text-slate-700">
+            ${item.meaning}
+          </div>
+          <div class="text-xs font-bold text-slate-400 mb-2">
+            (${item.clue})
+          </div>
 
-      // 導師與幼兒仿說鷹架回饋（例如：「係今日！」）
-      instructionText.textContent = currentConfig.affirmation;
-      tutorSpeechPrompt.textContent = `仿說提點：「${currentConfig.affirmation} 一齊講一次。」`;
-      
-      speakCantonese(currentConfig.affirmation, () => {
-        // 短暫停留後推進到下一步
-        setTimeout(() => {
-          currentStepIdx++;
-          updateGameStepVisuals(true);
-        }, 900);
+          <!-- Audio Read Button -->
+          <button class="w-full py-2 bg-amber-100 hover:bg-amber-200 text-amber-900 rounded-xl font-black text-xs sm:text-sm flex items-center justify-center gap-1 active:scale-95 transition" data-char="${item.char}">
+            <span>🔊 點我讀音</span>
+          </button>
+        `;
+
+        // Click audio triggers
+        const triggerAudio = () => {
+          getAudioContext();
+          speakCantonese(item.pronunciationText);
+          card.classList.add('pulse-selected');
+          setTimeout(() => card.classList.remove('pulse-selected'), 1200);
+        };
+
+        card.addEventListener('click', triggerAudio);
+        container.appendChild(card);
       });
     }
 
-    function handleIncorrectPlacement(cardElement) {
-      // 溫和回彈與微幅搖晃，無負向刺耳聲音
-      cardElement.classList.add('nudge-retry');
-      setTimeout(() => {
-        cardElement.classList.remove('nudge-retry');
-      }, 350);
+    function renderMatchingView() {
+      selectedCharId = null;
+      matchedPairs.clear();
+      document.getElementById('matched-count').innerText = "0";
 
-      // 觸發輔助提醒，溫和重複指令
-      const currentConfig = GAME_STEPS[currentStepIdx];
-      speakCantonese(currentConfig.phrase);
-    }
+      const charCol = document.getElementById('char-column');
+      const picCol = document.getElementById('pic-column');
+      charCol.innerHTML = '';
+      picCol.innerHTML = '';
 
-    /* ==========================================================================
-       6. 雙模式互動：支援觸控拖曳 (Touch Drag) 與 點擊選取 (Tap-to-Place)
-       ========================================================================== */
-    // 點擊選取邏輯 (特別適用於精細小肌肉發展中或手震幼童)
-    function clearSelection() {
-      if (selectedItemCard) {
-        selectedItemCard.classList.remove('ring-4', 'ring-blue-400', 'bg-blue-50');
-      }
-      selectedItemCard = null;
-      selectedStatusBadge.classList.add('hidden');
-    }
+      // Shuffled characters on left, shuffled pictograms on right
+      const charsList = shuffleArray(currentWords);
+      const picsList = shuffleArray(currentWords);
 
-    function handleCardClick(cardEl) {
-      const type = cardEl.getAttribute('data-type');
-      if (completedItems.has(type)) return;
+      // Render Left Cards: Chinese Characters
+      charsList.forEach(item => {
+        const btn = document.createElement('button');
+        btn.id = `char-btn-${item.char}`;
+        btn.dataset.char = item.char;
+        btn.className = "w-full min-h-[72px] sm:min-h-[84px] bg-white hover:bg-amber-50 active:scale-98 border-3 border-amber-200 rounded-2xl p-2 sm:p-3 flex items-center justify-between shadow-sm transition-all";
+        btn.innerHTML = `
+          <div class="flex items-center gap-3">
+            <span class="char-font text-4xl sm:text-5xl font-black px-2 py-0.5 rounded-xl bg-amber-50 border border-amber-200" style="color: ${item.color}">
+              ${item.char}
+            </span>
+            <div class="text-left">
+              <span class="text-xs sm:text-sm font-bold text-slate-500 block">獨體字</span>
+              <span class="text-xs font-bold text-amber-700 bg-amber-100 px-1.5 py-0.5 rounded-md">${item.clue}</span>
+            </div>
+          </div>
+          <div class="speaker-pill p-2 rounded-xl bg-orange-100 hover:bg-orange-200 text-orange-800 transition">
+            <svg class="w-6 h-6" fill="currentColor" viewBox="0 0 20 20">
+              <path fill-rule="evenodd" d="M9.383 3.076A1 1 0 0110 4v12a1 1 0 01-1.617.774l-4.14-3.313H2a1 1 0 01-1-1V7.539a1 1 0 011-1h2.243l4.14-3.313a1 1 0 011-.15zm5.088 2.095a1 1 0 011.414 0 7.002 7.002 0 010 9.898 1 1 0 11-1.414-1.414 5.002 5.002 0 000-7.07 1 1 0 010-1.414z" clip-rule="evenodd"/>
+            </svg>
+          </div>
+        `;
 
-      soundManager.initCtx();
-
-      if (selectedItemCard === cardEl) {
-        clearSelection();
-        return;
-      }
-
-      clearSelection();
-      selectedItemCard = cardEl;
-      cardEl.classList.add('ring-4', 'ring-blue-400', 'bg-blue-50');
-      selectedStatusBadge.classList.remove('hidden');
-
-      // 播放卡片語音輔助確認
-      const voice = cardEl.getAttribute('data-voice');
-      speakCantonese(voice);
-    }
-
-    function handleCarriageClick(carriageEl) {
-      if (!selectedItemCard) return;
-
-      const currentConfig = GAME_STEPS[currentStepIdx];
-      const targetSlot = carriageEl.getAttribute('data-slot');
-      const cardType = selectedItemCard.getAttribute('data-type');
-
-      if (targetSlot === currentConfig.targetKey && cardType === currentConfig.targetKey) {
-        handleCorrectPlacement(cardType, selectedItemCard, carriageEl);
-      } else {
-        handleIncorrectPlacement(selectedItemCard);
-        clearSelection();
-      }
-    }
-
-    // 觸控與滑鼠拖曳邏輯 (Touch & Pointer Events with smooth Touch Proxy)
-    let touchDragProxy = null;
-    let activeDraggedCard = null;
-
-    function initTouchAndDrag() {
-      const cards = document.querySelectorAll('.item-card');
-      const carriages = document.querySelectorAll('.carriage');
-
-      // 點擊卡片與車廂綁定
-      cards.forEach(card => {
-        card.addEventListener('click', (e) => {
-          handleCardClick(card);
+        btn.addEventListener('click', (e) => {
+          handleCharClick(item.char);
         });
 
-        // Pointerdown for dragging
-        card.addEventListener('pointerdown', (e) => {
-          const type = card.getAttribute('data-type');
-          if (completedItems.has(type)) return;
+        charCol.appendChild(btn);
+      });
 
-          soundManager.initCtx();
-          activeDraggedCard = card;
+      // Render Right Cards: Pictograms / Meanings
+      picsList.forEach(item => {
+        const btn = document.createElement('button');
+        btn.id = `pic-btn-${item.char}`;
+        btn.dataset.char = item.char;
+        btn.className = "w-full min-h-[72px] sm:min-h-[84px] bg-white hover:bg-amber-50 active:scale-98 border-3 border-amber-200 rounded-2xl p-2 sm:p-3 flex items-center justify-between shadow-sm transition-all";
+        btn.innerHTML = `
+          <div class="flex items-center gap-3">
+            <div class="w-14 h-14 sm:w-16 sm:h-16 p-1 bg-amber-50 rounded-xl border border-amber-100 flex items-center justify-center shrink-0">
+              ${item.svg}
+            </div>
+            <div class="text-left">
+              <span class="text-base sm:text-lg font-black text-slate-800 block">${item.meaning}</span>
+              <span class="text-xs font-bold text-slate-400">象形圖案</span>
+            </div>
+          </div>
+          <div class="check-pill w-8 h-8 rounded-full border-2 border-slate-200 flex items-center justify-center text-slate-300">
+            ?
+          </div>
+        `;
 
-          const rect = card.getBoundingClientRect();
-          touchDragProxy = card.cloneNode(true);
-          touchDragProxy.id = "active-touch-proxy";
-          touchDragProxy.classList.add('touch-proxy');
-          touchDragProxy.style.width = `${rect.width}px`;
-          touchDragProxy.style.height = `${rect.height}px`;
-          touchDragProxy.style.left = `${e.clientX}px`;
-          touchDragProxy.style.top = `${e.clientY}px`;
-          
-          document.body.appendChild(touchDragProxy);
-          card.classList.add('dragging-card');
+        btn.addEventListener('click', () => {
+          handlePicClick(item.char);
         });
+
+        picCol.appendChild(btn);
       });
+    }
 
-      window.addEventListener('pointermove', (e) => {
-        if (!touchDragProxy || !activeDraggedCard) return;
-        e.preventDefault();
-        touchDragProxy.style.left = `${e.clientX}px`;
-        touchDragProxy.style.top = `${e.clientY}px`;
-      });
+    function handleCharClick(char) {
+      getAudioContext();
+      const charObj = currentWords.find(w => w.char === char);
+      if (!charObj) return;
 
-      window.addEventListener('pointerup', (e) => {
-        if (!activeDraggedCard) return;
+      // Speak pronunciation
+      speakCantonese(`${charObj.char}。${charObj.clue}`);
 
-        const currentConfig = GAME_STEPS[currentStepIdx];
-        const cardType = activeDraggedCard.getAttribute('data-type');
+      // If already matched, return
+      if (matchedPairs.has(char)) return;
 
-        // 偵測釋放點所在元素
-        if (touchDragProxy) {
-          touchDragProxy.remove();
-          touchDragProxy = null;
+      selectedCharId = char;
+
+      // Update UI highlight on left cards
+      currentWords.forEach(w => {
+        const btn = document.getElementById(`char-btn-${w.char}`);
+        if (!btn || matchedPairs.has(w.char)) return;
+
+        if (w.char === char) {
+          btn.classList.add('ring-4', 'ring-orange-400', 'border-orange-500', 'bg-orange-50');
+          btn.classList.remove('border-amber-200', 'bg-white');
+        } else {
+          btn.classList.remove('ring-4', 'ring-orange-400', 'border-orange-500', 'bg-orange-50');
+          btn.classList.add('border-amber-200', 'bg-white');
         }
-        activeDraggedCard.classList.remove('dragging-card');
+      });
 
-        // 查找落在下方的車廂
-        const elemBelow = document.elementFromPoint(e.clientX, e.clientY);
-        const targetCarriage = elemBelow ? elemBelow.closest('.carriage') : null;
+      // Update status prompt banner
+      const banner = document.getElementById('match-hint-banner');
+      banner.innerHTML = `<span>👉 你揀選咗【${charObj.char}】！快啲喺右邊搵出屬於佢嘅圖案啦！</span>`;
+    }
 
-        if (targetCarriage) {
-          const slot = targetCarriage.getAttribute('data-slot');
-          if (slot === currentConfig.targetKey && cardType === currentConfig.targetKey) {
-            handleCorrectPlacement(cardType, activeDraggedCard, targetCarriage);
-          } else {
-            handleIncorrectPlacement(activeDraggedCard);
+    function handlePicClick(char) {
+      getAudioContext();
+      const picObj = currentWords.find(w => w.char === char);
+      if (!picObj) return;
+
+      // If already matched, just speak description
+      if (matchedPairs.has(char)) {
+        speakCantonese(`${picObj.char}。${picObj.meaning}`);
+        return;
+      }
+
+      // If user hasn't selected a character first, gently remind
+      if (!selectedCharId) {
+        speakCantonese("請先點選左邊嘅中文字，再點選圖案啦！");
+        const picBtn = document.getElementById(`pic-btn-${char}`);
+        if (picBtn) {
+          picBtn.classList.add('wiggle-hint');
+          setTimeout(() => picBtn.classList.remove('wiggle-hint'), 600);
+        }
+        return;
+      }
+
+      const leftCharBtn = document.getElementById(`char-btn-${selectedCharId}`);
+      const rightPicBtn = document.getElementById(`pic-btn-${char}`);
+
+      // CHECK IF MATCH IS CORRECT
+      if (selectedCharId === char) {
+        // MATCH SUCCESS!
+        matchedPairs.add(char);
+        playChime(true);
+
+        // Sound celebration in Cantonese
+        const randomPraise = PRAISE_PHRASES[Math.floor(Math.random() * PRAISE_PHRASES.length)];
+        speakCantonese(`${randomPraise} ${picObj.char}，${picObj.clue}！`);
+
+        // Style left button as completed
+        if (leftCharBtn) {
+          leftCharBtn.className = "w-full min-h-[72px] sm:min-h-[84px] bg-emerald-50 border-3 border-emerald-500 rounded-2xl p-2 sm:p-3 flex items-center justify-between shadow matched-bounce";
+          leftCharBtn.innerHTML += `<span class="text-xl">✅</span>`;
+        }
+
+        // Style right button as completed
+        if (rightPicBtn) {
+          rightPicBtn.className = "w-full min-h-[72px] sm:min-h-[84px] bg-emerald-50 border-3 border-emerald-500 rounded-2xl p-2 sm:p-3 flex items-center justify-between shadow matched-bounce";
+          const checkPill = rightPicBtn.querySelector('.check-pill');
+          if (checkPill) {
+            checkPill.className = "w-8 h-8 rounded-full bg-emerald-500 text-white font-bold flex items-center justify-center";
+            checkPill.innerHTML = "✓";
           }
         }
 
-        activeDraggedCard = null;
-      });
+        // Update count
+        document.getElementById('matched-count').innerText = matchedPairs.size;
 
-      // 點擊車廂對應放置
-      carriages.forEach(carriage => {
-        carriage.addEventListener('click', () => {
-          handleCarriageClick(carriage);
+        // Reset current selection
+        selectedCharId = null;
+
+        // Reset banner
+        const banner = document.getElementById('match-hint-banner');
+        banner.innerHTML = `<span>🌟 答啱喇！繼續搵下一個獨體字啦！</span>`;
+
+        // Check if level completed
+        if (matchedPairs.size === WORDS_PER_LEVEL) {
+          setTimeout(() => {
+            handleLevelComplete();
+          }, 800);
+        }
+
+      } else {
+        // MATCH INCORRECT (Gentle, warm reassurance)
+        playChime(false);
+        const randomRetry = RETRY_PHRASES[Math.floor(Math.random() * RETRY_PHRASES.length)];
+        speakCantonese(randomRetry);
+
+        if (rightPicBtn) {
+          rightPicBtn.classList.add('wiggle-hint', 'border-rose-300');
+          setTimeout(() => {
+            rightPicBtn.classList.remove('wiggle-hint', 'border-rose-300');
+          }, 600);
+        }
+      }
+    }
+
+    function handleLevelComplete() {
+      // Confetti firework
+      if (typeof confetti === 'function') {
+        confetti({
+          particleCount: 80,
+          spread: 70,
+          origin: { y: 0.6 }
         });
-      });
+      }
+
+      // Check if all 8 levels are finished
+      if (currentLevel >= TOTAL_LEVELS) {
+        speakCantonese("好叻呀！你已經成功完成哂 8 關喇！你係獨體字大博士！");
+        document.getElementById('modal-game-complete').classList.remove('hidden');
+      } else {
+        const titleBadge = LEVEL_TITLES[currentLevel - 1] || "獨體字小學士";
+        document.getElementById('stamp-badge-title').innerText = titleBadge;
+        document.getElementById('modal-success-msg').innerText = `你好有耐性，順利完成第 ${currentLevel} 關嘅 5 個獨體字配對！`;
+        speakCantonese(`太好喇！你已經完成第 ${currentLevel} 關！獲得 ${titleBadge} 印章！`);
+        document.getElementById('modal-level-success').classList.remove('hidden');
+      }
     }
 
-    /* ==========================================================================
-       7. 完成畫面展示與重新開始
-       ========================================================================== */
-    function showCelebration() {
-      soundManager.playCelebrationFanfare();
-      completionModal.classList.remove('hidden');
-      setTimeout(() => {
-        completionModalBox.classList.remove('scale-95', 'opacity-0');
-        completionModalBox.classList.add('scale-100', 'opacity-100');
-      }, 50);
+    // Initialize or load a specific level
+    function startLevel(lvl) {
+      currentLevel = lvl;
+      currentWords = pickWordsForLevel(lvl);
+      updateProgressIndicators();
 
-      speakCantonese('好叻呀！尋日、今日、聽日！');
+      // Default to View A (Preview & Listen) so SEN children can see & hear before matching
+      switchView('preview');
+      renderPreviewView();
+      renderMatchingView();
+
+      // Cantonese voice introduction to level
+      speakCantonese(`歡迎嚟到第 ${currentLevel} 關！我哋一齊先聽一聽、認一認呢 5 個獨體字啦！`);
     }
 
-    function resetGame() {
-      currentStepIdx = 0;
-      completedItems.clear();
-      clearSelection();
+    // Switching views
+    function switchView(mode) {
+      const previewSec = document.getElementById('view-preview');
+      const matchSec = document.getElementById('view-match');
+      const tabPreview = document.getElementById('tab-step-preview');
+      const tabMatch = document.getElementById('tab-step-match');
 
-      // 還原所有車廂
-      document.querySelectorAll('.carriage').forEach(carriage => {
-        const placeholderHint = carriage.querySelector('.placeholder-hint');
-        const placedContainer = carriage.querySelector('.placed-card-container');
-        placeholderHint.classList.remove('hidden');
-        placedContainer.classList.add('hidden');
-        placedContainer.innerHTML = '';
-      });
-
-      // 還原所有卡片
-      document.querySelectorAll('.item-card').forEach(card => {
-        card.className = "item-card bg-white border-2 border-slate-200 hover:border-amber-400 rounded-3xl p-3 sm:p-5 flex flex-col items-center justify-center shadow-md cursor-grab active:cursor-grabbing transform transition-all duration-200 hover:shadow-lg touch-none";
-      });
-
-      // 關閉完成視窗
-      completionModalBox.classList.add('scale-95', 'opacity-0');
-      completionModalBox.classList.remove('scale-100', 'opacity-100');
-      setTimeout(() => {
-        completionModal.classList.add('hidden');
-      }, 250);
-
-      // 啟動首步
-      updateGameStepVisuals(true);
+      if (mode === 'preview') {
+        previewSec.classList.remove('hidden');
+        matchSec.classList.add('hidden');
+        tabPreview.className = "px-4 py-2 rounded-xl font-black text-sm sm:text-base transition bg-orange-500 text-white shadow-md flex items-center gap-1.5";
+        tabMatch.className = "px-4 py-2 rounded-xl font-black text-sm sm:text-base transition bg-white/70 text-orange-900 hover:bg-white flex items-center gap-1.5";
+      } else {
+        previewSec.classList.add('hidden');
+        matchSec.classList.remove('hidden');
+        tabMatch.className = "px-4 py-2 rounded-xl font-black text-sm sm:text-base transition bg-orange-500 text-white shadow-md flex items-center gap-1.5";
+        tabPreview.className = "px-4 py-2 rounded-xl font-black text-sm sm:text-base transition bg-white/70 text-orange-900 hover:bg-white flex items-center gap-1.5";
+      }
     }
 
-    /* ==========================================================================
-       8. 初始化與事件監聽
-       ========================================================================== */
-    window.addEventListener('DOMContentLoaded', () => {
-      initTouchAndDrag();
-      updateGameStepVisuals(false); // 初始靜態渲染
+    document.addEventListener('DOMContentLoaded', () => {
+      // Tab navigation
+      document.getElementById('tab-step-preview').addEventListener('click', () => switchView('preview'));
+      document.getElementById('tab-step-match').addEventListener('click', () => switchView('match'));
+      document.getElementById('btn-start-matching').addEventListener('click', () => {
+        switchView('match');
+        speakCantonese("開始配對挑戰！請點選左邊嘅中文字，再搵出右邊嘅圖案啦！");
+      });
+      document.getElementById('btn-back-to-preview').addEventListener('click', () => switchView('preview'));
 
-      btnReplayAudio.addEventListener('click', () => {
-        soundManager.initCtx();
-        if (currentStepIdx < GAME_STEPS.length) {
-          speakCantonese(GAME_STEPS[currentStepIdx].phrase);
+      // Replay audio guidance button
+      document.getElementById('btn-sound-replay').addEventListener('click', () => {
+        getAudioContext();
+        speakCantonese(`第 ${currentLevel} 關。請小朋友點選左邊嘅中文字，再點選右邊相應嘅意思圖案！`);
+      });
+
+      // Reset level button
+      document.getElementById('btn-reset-current-level').addEventListener('click', () => {
+        renderMatchingView();
+        speakCantonese("重新開始呢一關配對！");
+      });
+
+      // Modal level next button
+      document.getElementById('btn-next-level').addEventListener('click', () => {
+        document.getElementById('modal-level-success').classList.add('hidden');
+        startLevel(currentLevel + 1);
+      });
+
+      // Modal replay level
+      document.getElementById('btn-replay-modal').addEventListener('click', () => {
+        document.getElementById('modal-level-success').classList.add('hidden');
+        startLevel(currentLevel);
+      });
+
+      // Restart entire game
+      document.getElementById('btn-restart-game').addEventListener('click', () => {
+        document.getElementById('modal-game-complete').classList.add('hidden');
+        startLevel(1);
+      });
+
+      // Teacher / Parent modal triggers
+      const teacherModal = document.getElementById('modal-teacher');
+      document.getElementById('btn-teacher-menu').addEventListener('click', () => {
+        teacherModal.classList.remove('hidden');
+      });
+      document.getElementById('btn-close-teacher').addEventListener('click', () => {
+        teacherModal.classList.add('hidden');
+      });
+      document.getElementById('btn-save-teacher').addEventListener('click', () => {
+        teacherModal.classList.add('hidden');
+      });
+
+      // Teacher level jump buttons
+      const jumperContainer = document.getElementById('level-jumper-buttons');
+      for (let i = 1; i <= TOTAL_LEVELS; i++) {
+        const btn = document.createElement('button');
+        btn.className = "py-2 bg-amber-100 hover:bg-amber-200 text-amber-900 font-black rounded-xl text-xs sm:text-sm border border-amber-300";
+        btn.innerText = `關卡 ${i}`;
+        btn.addEventListener('click', () => {
+          teacherModal.classList.add('hidden');
+          startLevel(i);
+        });
+        jumperContainer.appendChild(btn);
+      }
+
+      // Speech speed slider
+      const speedSlider = document.getElementById('speech-rate-slider');
+      const speedLabel = document.getElementById('speech-rate-label');
+      speedSlider.addEventListener('input', (e) => {
+        speechRate = parseFloat(e.target.value);
+        if (speechRate <= 0.7) {
+          speedLabel.innerText = "特慢";
+        } else if (speechRate <= 0.85) {
+          speedLabel.innerText = "慢速";
         } else {
-          speakCantonese('好叻呀！尋日、今日、聽日！');
+          speedLabel.innerText = "正常";
         }
       });
 
-      btnResetAll.addEventListener('click', resetGame);
-      modalReplayBtn.addEventListener('click', resetGame);
+      // Fullscreen Toggle
+      document.getElementById('btn-toggle-fullscreen').addEventListener('click', () => {
+        if (!document.fullscreenElement) {
+          document.documentElement.requestFullscreen().catch(err => {
+            console.warn("Fullscreen request error:", err);
+          });
+        } else {
+          if (document.exitFullscreen) {
+            document.exitFullscreen();
+          }
+        }
+      });
 
-      // 初次用戶點擊時喚醒 Web Audio
-      window.addEventListener('click', () => {
-        soundManager.initCtx();
-      }, { once: true });
+      // Kick off with Level 1
+      startLevel(1);
     });
   </script>
 </body>
